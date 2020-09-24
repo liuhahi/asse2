@@ -26,21 +26,33 @@ class GameLogic:
         self._win = False
 
     def init_game_information(self):
-        dungeon = {}
+        dungeon = {}           
         for i in range(self._dungeon_size):            
             for j in range(self._dungeon_size):
-                entity = ""
-                if self._dungeon[i][j] == WALL:
-                    entity = Wall()
-                elif self._dungeon[i][j] == KEY:
+                entity = None
+                if self._dungeon[i][j] == KEY:
                     entity = Key()
-                elif self._dungeon[i][j] == PLAYER:
-                    self._player.set_position((i,j))
-                    entity = self._player
-                elif self._dungeon[i][j] == DOOR:
-                    entity = DOOR
-                if entity != "":                                          
                     dungeon[(i,j)] = entity
+        for i in range(self._dungeon_size):            
+            for j in range(self._dungeon_size):
+                entity = None                        
+                if self._dungeon[i][j] == DOOR:
+                    entity = Door()    
+                    dungeon[(i,j)] = entity                  
+        for i in range(self._dungeon_size):            
+            for j in range(self._dungeon_size):
+                entity = None                    
+                if self._dungeon[i][j] == WALL:
+                    entity = Wall() 
+                    dungeon[(i,j)] = entity 
+        for i in range(self._dungeon_size):            
+            for j in range(self._dungeon_size):
+                entity = None                    
+                if self._dungeon[i][j] == MOVE_INCREASE:
+                    entity = MoveIncrease() 
+                    dungeon[(i,j)] = entity
+                if self._dungeon[i][j] == PLAYER:
+                    self._player.set_position((i,j))
         return dungeon
     def get_game_information(self):
         return self._game_information
@@ -71,27 +83,32 @@ class GameLogic:
         else:
             return None
     def get_entity_in_direction(self, direction):
-        direction = self._player.get_position() + DIRECTIONS[direction]
+        current = self._player.get_position()
+        position = (current[0] + DIRECTIONS[direction][0], current[1] + DIRECTIONS[direction][1])
         print(direction)
-        if direction[0] > self._dungeon_size or direction[1] > self._dungeon_size or direction[0] < 0 or direction[1] < 0:
+        if position[0] > self._dungeon_size or position[1] > self._dungeon_size or position[0] < 0 or position[1] < 0:
+            return None
+        elif position not in self._game_information.keys():
             return None
         else:
-            return self._game_information[direction]
+            return self._game_information[position]
     def collision_check(self, direction):
         current = self._player.get_position()
         position = (current[0] + DIRECTIONS[direction][0], current[1] + DIRECTIONS[direction][1])
         if position[0] > self._dungeon_size or position[1] > self._dungeon_size or position[0] < 0 or position[1] < 0:
             return False
         elif position in self._game_information and self._game_information[position].get_id() == WALL:
-            return False
-        else:
             return True
+        else:
+            return False
     def new_position(self, direction):
         return (self._player.get_position()[0] + DIRECTIONS[direction][0], self._player.get_position()[1] + DIRECTIONS[direction][1])
         
     def move_player(self, direction):
         self._player.set_position(self.new_position(direction))
     def check_game_over(self):
+        if self._player.moves_remaining() <= 0:
+            return True
         return self._win
     def set_win(self, win):
         self._win = win
@@ -120,7 +137,8 @@ class Wall(Entity):
     ''' wall class'''
     def __init__(self):
         super().__init__()
-        self.id = '#'    	
+        self.id = WALL
+        self.collidable = False         	
 
 class Item(Entity):
     ''' item class'''
@@ -137,13 +155,16 @@ class Key(Item):
     def on_hit(self, game):
         raise NotImplementedError()	
 
-class MoveIncrease():
+class MoveIncrease(Item):
     ''' key class'''
-    def __init__(self):
+    def __init__(self, move_count=5):
         super().__init__()
         self.id = MOVE_INCREASE
+        self.move_count = move_count
     def on_hit(self, game):
-        raise NotImplementedError()	      
+        player = game.get_player()
+        player.change_move_count(move_count)
+        	      
 
 class Door(Entity):
     ''' key class'''
@@ -158,18 +179,17 @@ class Player(Entity):
         super().__init__()
         self.move_count = move_count
         self.id = PLAYER
-        self.position = tuple()
-        self.move = 0
+        self.position = None
         self.inventory = []
 
     def set_position(self, position):
         self.position = position
-    def get_position(self):
+    def get_position(self):        
         return self.position
     def change_move_count(self, number):
-        self.move += number
+        self.move_count += number
     def moves_remaining(self):
-        return self.move
+        return self.move_count
     def add_item(self, item):
         self.inventory.append(item)        
     def get_inventory(self):
@@ -178,16 +198,19 @@ class Player(Entity):
 class GameApp:
     game = GameLogic()
     game.init_game_information()
-    print(game.get_positions(PLAYER))
-    print(game.get_positions(WALL))
-    print(game.get_player())
-    print(game.get_game_information())
-    print(game.get_player().get_position())
-    print(game.collision_check("W"))
-    print(game.new_position("D"))
+    player = game.get_player()
+    player.change_move_count(-7)
     print(game.check_game_over())
-    print(game.set_win(True))
-    print(game.won())
+    # print(game.get_positions(PLAYER))
+    # print(game.get_positions(WALL))
+    # print(game.get_player())
+    # print(game.get_game_information())
+    # print(game.get_player().get_position())
+    # print(game.collision_check("W"))
+    # print(game.new_position("D"))
+    # print(game.check_game_over())
+    # print(game.set_win(True))
+    # print(game.won())
     pass
 
 
