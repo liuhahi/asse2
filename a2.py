@@ -24,7 +24,6 @@ class GameLogic:
         #you need to implement the init_game_information() method for this.
         self._game_information = self.init_game_information()
         self._win = False
-
     def init_game_information(self):
         dungeon = {}           
         for i in range(self._dungeon_size):            
@@ -56,7 +55,6 @@ class GameLogic:
         return dungeon
     def get_game_information(self):
         return self._game_information
-
     def get_positions(self, entity):
         """ Returns a list of tuples containing all positions of a given Entity
              type.
@@ -72,7 +70,6 @@ class GameLogic:
                 if char == entity:
                     positions.append((row,col))
         return positions
-
     # Write your code here
     def get_player(self):
         return self._player
@@ -85,7 +82,6 @@ class GameLogic:
     def get_entity_in_direction(self, direction):
         current = self._player.get_position()
         position = (current[0] + DIRECTIONS[direction][0], current[1] + DIRECTIONS[direction][1])
-        print(direction)
         if position[0] > self._dungeon_size or position[1] > self._dungeon_size or position[0] < 0 or position[1] < 0:
             return None
         elif position not in self._game_information.keys():
@@ -97,7 +93,7 @@ class GameLogic:
         position = (current[0] + DIRECTIONS[direction][0], current[1] + DIRECTIONS[direction][1])
         if position[0] > self._dungeon_size or position[1] > self._dungeon_size or position[0] < 0 or position[1] < 0:
             return False
-        elif position in self._game_information and self._game_information[position].get_id() == WALL:
+        elif position in self._game_information and self._game_information[position].can_collide() == False:
             return True
         else:
             return False
@@ -106,16 +102,15 @@ class GameLogic:
         
     def move_player(self, direction):
         self._player.set_position(self.new_position(direction))
+        
     def check_game_over(self):
-        if self._player.moves_remaining() <= 0:
-            return True
-        return self._win
+        return self._player.moves_remaining() <= 0 or self.won()
     def set_win(self, win):
         self._win = win
     def won(self):
         return self._win
     def get_dungeon_size(self):
-        return self._dungeon_size
+        return self._dungeon_size      
         
 class Entity:
     ''' entity class'''
@@ -153,7 +148,11 @@ class Key(Item):
         super().__init__()
         self.id = KEY
     def on_hit(self, game):
-        raise NotImplementedError()	
+        player = game.get_player()
+        player.add_item(self)
+        game_info = game.get_game_information() 
+        for item in game.get_positions(KEY):
+            game_info.pop(item)
 
 class MoveIncrease(Item):
     ''' key class'''
@@ -163,8 +162,10 @@ class MoveIncrease(Item):
         self.move_count = move_count
     def on_hit(self, game):
         player = game.get_player()
-        player.change_move_count(move_count)
-        	      
+        player.change_move_count(self.move_count)
+        game_info = game.get_game_information() 
+        for item in game.get_positions(MOVE_INCREASE):            
+            game_info.pop(item)                	      
 
 class Door(Entity):
     ''' key class'''
@@ -172,6 +173,11 @@ class Door(Entity):
         super().__init__()
         self.id = DOOR
     def on_hit(self, game):
+        player = game.get_player()
+        for item in player.get_inventory():
+            if str(item) == str(Key()):
+                game.set_win(True)
+                return
         print("You don't have the key!")
 
 class Player(Entity):
@@ -195,22 +201,71 @@ class Player(Entity):
     def get_inventory(self):
         return self.inventory
 
+def prompt(action):
+    """(str) Prompts the user for input and return a response"""
+    return input(action)
+
 class GameApp:
-    game = GameLogic()
-    game.init_game_information()
-    player = game.get_player()
-    player.change_move_count(-7)
-    print(game.check_game_over())
-    # print(game.get_positions(PLAYER))
-    # print(game.get_positions(WALL))
-    # print(game.get_player())
-    # print(game.get_game_information())
-    # print(game.get_player().get_position())
-    # print(game.collision_check("W"))
-    # print(game.new_position("D"))
-    # print(game.check_game_over())
-    # print(game.set_win(True))
-    # print(game.won())
+    ''' key class'''
+    def __init__(self):      
+        self.game = GameLogic()
+        self.game_info = self.game.get_game_information()
+        self.player = self.game.get_player()
+        # self.play()
+
+    def draw(self):
+        display = Display(self.game_info, self.game._dungeon_size)        
+        player_pos = self.player.get_position()
+        moves = self.player.moves_remaining()
+        display.display_game(player_pos)
+        display.display_moves(moves)
+
+    def play(self):
+        q_flag = False
+        while self.game.check_game_over() == False:
+            self.draw()
+            action = prompt("Please input an action: ")            
+            if action in VALID_ACTIONS:
+                if action == HELP:
+                    print(HELP_MESSAGE)
+                elif action == QUIT:
+                    action = prompt('Are you sure you want to quit? (y/n): ')
+                    if action == 'y':
+                        q_flag = True
+                        break         
+                elif action == INVESTIGATE:
+                    continue           
+                else:
+                    self.player.change_move_count(-1)
+                    if self.game.collision_check(action):
+                        print(INVALID)
+                    else:                                               
+                        new_position = self.game.new_position(action)
+                        entity = self.game.get_entity(new_position)
+                        if entity:
+                            entity.on_hit(self.game)                        
+                        self.game.move_player(action) 
+                            
+            elif len(action.split()) == 2:
+                first = action.split()[0]
+                second = action.split()[1]
+                if first == INVESTIGATE:                    
+                    if second in VALID_ACTIONS:
+                        self.player.change_move_count(-1)
+                        check_position = (self.player.get_position()[0] + DIRECTIONS[second][0], self.player.get_position()[1] + DIRECTIONS[second][1])
+                        entity = self.game.get_entity(check_position)
+                        print('{} is on the {} side.'.format(entity, second))  
+                    else:
+                        print(INVALID)             
+            else:
+                print(INVALID)
+        if q_flag:
+            return
+
+        if self.game.won():
+            print(WIN_TEXT)
+        else:
+            print(LOSE_TEST)
     pass
 
 
