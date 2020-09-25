@@ -211,7 +211,6 @@ class GameApp:
         self.game = GameLogic()
         self.game_info = self.game.get_game_information()
         self.player = self.game.get_player()
-        # self.play()
 
     def draw(self):
         display = Display(self.game_info, self.game._dungeon_size)        
@@ -270,7 +269,7 @@ class GameApp:
 
 
 def main():
-    GameApp()
+    GameApp().play()  
 
 if __name__ == "__main__":
     main()
